@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Password Forge — Privacy Policy</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; line-height: 1.7; color: #222; }
+  h1 { color: #997a15; }
+  h2 { margin-top: 2em; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
+  hr { margin: 3em 0; border: none; border-top: 1px solid #ddd; }
+</style>
+</head>
+<body>
+
+<h1>Password Forge — Privacy Policy</h1>
+<p><em>Last updated: September 2026</em></p>
+
+<p>Password Forge is a Chrome extension that derives a password for a given
+website from a passphrase you type, using PBKDF2 (SHA-256) entirely on your
+own device. This page explains exactly what data the extension touches.</p>
+
+<h2>Data we never store or transmit</h2>
+<ul>
+  <li>Your <strong>master passphrase</strong> — exists only in the popup's
+      memory while it is open, and is discarded the moment the popup closes.
+      It is never written to disk, never sent anywhere.</li>
+  <li>Any <strong>generated password</strong> — computed locally and shown
+      to you; never stored or transmitted.</li>
+</ul>
+
+<h2>Data stored locally on your device only</h2>
+<p>Using the <code>storage</code> permission, the extension saves a small
+amount of non-sensitive preference data with <code>chrome.storage.local</code>,
+which never leaves your device and is never synced to any server we control:</p>
+<ul>
+  <li>Your chosen default User ID (only if you explicitly click "save as default")</li>
+  <li>Your preferred password length and character-type toggles</li>
+  <li>Your chosen display language (English/Japanese)</li>
+</ul>
+
+<h2>Data read, but not stored</h2>
+<p>Using the <code>activeTab</code> permission, the extension reads the
+<strong>hostname</strong> of the tab that is active when you open the popup,
+solely to pre-fill the "Domain" field for your convenience. No other page
+content, browsing history, or tab data is accessed. This value is not stored
+or transmitted anywhere; it simply appears in the input field for you to
+use or edit.</p>
+
+<h2>No network requests</h2>
+<p>Password Forge makes no network requests of any kind. All computation
+(PBKDF2 key derivation) happens locally in your browser via the standard
+Web Crypto API. There are no analytics, no ads, no third-party scripts, and
+no remote code execution.</p>
+
+<h2>Data sharing</h2>
+<p>We do not share, sell, or transmit any data to third parties, because no
+data ever leaves your device in the first place.</p>
+
+<h2>Data deletion</h2>
+<p>Uninstalling the extension removes all locally stored preference data.
+You can also clear it at any time via <code>chrome://extensions</code> →
+Password Forge → Remove, or by clearing the extension's storage from
+Chrome's site data settings.</p>
+
+<h2>Changes to this policy</h2>
+<p>Any changes to this policy will be posted on this page.</p>
+
+<h2>Contact</h2>
+<p>Questions or concerns can be raised via the
+<a href="https://github.com/">GitHub repository</a> for this project.</p>
+
+<hr>
+<p><em>この拡張機能は、あなたが入力した合言葉からPBKDF2(SHA-256)を用いてパスワードをすべて端末内で計算します。合言葉や生成されたパスワードは一切保存・送信されません。storage権限で保存されるのは既定のユーザーID・パスワード長・文字種設定・表示言語といった低機微度な設定のみで、外部への送信は一切行いません。activeTab権限は、ポップアップを開いた瞬間の現在のタブのホスト名を読み取り、ドメイン欄を自動入力するためだけに使用され、保存も送信もされません。</em></p>
+
+</body>
+</html>
