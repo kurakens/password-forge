@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Password Forge",
   "version": "1.0",
-  "description": "Generates a strong, repeatable password for each site from a passphrase, using PBKDF2 (SHA-256, 200,000 iterations). The passphrase itself is never stored.",
+  "description": "Generates a strong, repeatable password for each site from a passphrase using PBKDF2. Nothing sensitive is ever stored.",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
