@@ -1,225 +1,294 @@
-/**
- * Password Forge - Popup Script
- * Compatible with Chrome Extensions & Standalone PWA (GitHub Pages)
- */
+// --- 定数定義 ---
+const CHAR_SETS = {
+  upper: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+  lower: "abcdefghijklmnopqrstuvwxyz",
+  num:   "0123456789",
+  sym:   "!@#$%^&*()_+~`|}{[]:;?><,./-="
+};
+const ITERATIONS = 200000;
+const MAX_ATTEMPTS = 50;
+const SYM_REGEX = /[!@#$%^&*()_+~`|}{\[\]:;?><,.\/\-=]/;
 
-// --- 1. ストレージ互換レイヤー (Extension / Web 自動判定) ---
-const storage = {
-  get: async (keys) => {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      return await chrome.storage.local.get(keys);
-    }
-    const res = {};
-    const keyList = Array.isArray(keys)
-      ? keys
-      : (typeof keys === 'object' && keys !== null ? Object.keys(keys) : [keys]);
-
-    for (const k of keyList) {
-      const val = localStorage.getItem(`forge_${k}`);
-      if (val !== null) {
-        try {
-          res[k] = JSON.parse(val);
-        } catch {
-          res[k] = val;
-        }
-      } else if (typeof keys === 'object' && !Array.isArray(keys) && keys[k] !== undefined) {
-        res[k] = keys[k];
-      }
-    }
-    return res;
+// --- 多言語辞書 ---
+const I18N = {
+  en: {
+    subtitle: "Stateless Brass Cipher",
+    labelMasterKey: "Master Key (Passphrase)",
+    placeholderMasterKey: "A secret phrase only you remember",
+    labelDomain: "Target Site (Domain)",
+    labelVersion: "Gen",
+    labelUserId: "User ID",
+    placeholderUserId: "e.g. your.email@example.com",
+    saveUserIdTitle: "Save as default",
+    userIdSavedHint: "Saved as default user ID",
+    labelLength: "Password Length",
+    lengthUnit: "chars",
+    optUpper: "Uppercase",
+    optLower: "Lowercase",
+    optNum: "Numbers",
+    optSym: "Symbols",
+    generateBtn: "Generate",
+    outputPlaceholder: "Your password will appear here",
+    copyBtn: "Copy",
+    copiedBtn: "Copied!",
+    alertMasterDomain: "Please enter a master key and target site.",
+    alertCharClass: "Please select at least one character type.",
+    alertGenFail: "Generation failed. Try changing the length or character types."
   },
-  set: async (items) => {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      return await chrome.storage.local.set(items);
-    }
-    for (const [k, v] of Object.entries(items)) {
-      localStorage.setItem(`forge_${k}`, JSON.stringify(v));
-    }
+  ja: {
+    subtitle: "ステートレス・ブラス暗号",
+    labelMasterKey: "合言葉 (Master Key)",
+    placeholderMasterKey: "記憶している秘密のフレーズ",
+    labelDomain: "対象サイト (Domain)",
+    labelVersion: "世代",
+    labelUserId: "ユーザーID",
+    placeholderUserId: "例: your.email@example.com",
+    saveUserIdTitle: "既定として保存",
+    userIdSavedHint: "既定のユーザーIDとして保存しました",
+    labelLength: "パスワード長",
+    lengthUnit: "文字",
+    optUpper: "大文字",
+    optLower: "小文字",
+    optNum: "数字",
+    optSym: "記号",
+    generateBtn: "生成",
+    outputPlaceholder: "ここにパスワードが生成されます",
+    copyBtn: "コピー",
+    copiedBtn: "コピー済み",
+    alertMasterDomain: "合言葉と対象サイトを入力してください。",
+    alertCharClass: "文字種を少なくとも1つ選択してください。",
+    alertGenFail: "生成に失敗しました。条件(長さ・文字種)を変えて再度お試しください。"
   }
 };
 
-// --- 2. i18n 互換レイヤー ---
-function applyI18n() {
-  const elements = document.querySelectorAll('[data-i18n]');
-  elements.forEach((el) => {
-    const key = el.getAttribute('data-i18n');
-    if (typeof chrome !== 'undefined' && chrome.i18n && chrome.i18n.getMessage) {
-      const msg = chrome.i18n.getMessage(key);
-      if (msg) el.textContent = msg;
-    }
-  });
+const LANG_STORAGE_KEY = "uiLang";
+let currentLang = "en"; // default
 
-  const placeholders = document.querySelectorAll('[data-i18n-placeholder]');
-  placeholders.forEach((el) => {
-    const key = el.getAttribute('data-i18n-placeholder');
-    if (typeof chrome !== 'undefined' && chrome.i18n && chrome.i18n.getMessage) {
-      const msg = chrome.i18n.getMessage(key);
-      if (msg) el.placeholder = msg;
-    }
-  });
-}
-
-// --- 3. コアロジック (パスワード生成) ---
-const CHARSETS = {
-  uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-  lowercase: 'abcdefghijklmnopqrstuvwxyz',
-  numbers: '0123456789',
-  symbols: '!@#$%^&*()_+-=[]{}|;:,.<>?'
+// --- DOM要素の取得 ---
+const els = {
+  masterKey: document.getElementById('masterKey'),
+  toggleVis: document.getElementById('toggleVis'),
+  domain: document.getElementById('domain'),
+  version: document.getElementById('version'),
+  userId: document.getElementById('userId'),
+  saveUserIdBtn: document.getElementById('saveUserIdBtn'),
+  userIdHint: document.getElementById('userIdHint'),
+  lengthSlider: document.getElementById('lengthSlider'),
+  lengthDisplay: document.getElementById('lengthDisplay'),
+  optUpper: document.getElementById('optUpper'),
+  optLower: document.getElementById('optLower'),
+  optNum: document.getElementById('optNum'),
+  optSym: document.getElementById('optSym'),
+  generateBtn: document.getElementById('generateBtn'),
+  gearIcon: document.querySelector('.gear-icon'),
+  output: document.getElementById('output'),
+  copyBtn: document.getElementById('copyBtn'),
+  langToggle: document.getElementById('langToggle')
 };
 
-async function generateDerivedPassword(masterKey, serviceName, length, options) {
-  let allowedChars = '';
-  if (options.uppercase) allowedChars += CHARSETS.uppercase;
-  if (options.lowercase) allowedChars += CHARSETS.lowercase;
-  if (options.numbers) allowedChars += CHARSETS.numbers;
-  if (options.symbols) allowedChars += CHARSETS.symbols;
+// --- 言語切替 ---
+function applyLanguage(lang) {
+  currentLang = lang;
+  const dict = I18N[lang];
 
-  if (!allowedChars) {
-    allowedChars = CHARSETS.lowercase + CHARSETS.numbers;
+  document.querySelectorAll('[data-i18n]').forEach((elm) => {
+    const key = elm.getAttribute('data-i18n');
+    if (dict[key] !== undefined) elm.textContent = dict[key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((elm) => {
+    const key = elm.getAttribute('data-i18n-placeholder');
+    if (dict[key] !== undefined) elm.placeholder = dict[key];
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach((elm) => {
+    const key = elm.getAttribute('data-i18n-title');
+    if (dict[key] !== undefined) elm.title = dict[key];
+  });
+
+  els.langToggle.querySelectorAll('.lang-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.lang === lang);
+  });
+
+  // コピー済み表示中でなければCopyボタンのラベルも更新
+  if (!els.copyBtn.disabled || els.copyBtn.textContent !== dict.copiedBtn) {
+    els.copyBtn.textContent = dict.copyBtn;
   }
-
-  // マスターキーが入力されている場合は決定論的生成 (PBKDF2/SHA-256)
-  if (masterKey && masterKey.trim() !== '') {
-    const enc = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
-      'raw',
-      enc.encode(masterKey),
-      'PBKDF2',
-      false,
-      ['deriveBits']
-    );
-
-    const salt = enc.encode(serviceName || 'forge-default-salt');
-    const derivedBits = await crypto.subtle.deriveBits(
-      {
-        name: 'PBKDF2',
-        salt: salt,
-        iterations: 100000,
-        hash: 'SHA-256'
-      },
-      keyMaterial,
-      length * 16
-    );
-
-    const view = new Uint16Array(derivedBits);
-    let result = '';
-    for (let i = 0; i < length; i++) {
-      result += allowedChars[view[i] % allowedChars.length];
-    }
-    return result;
-  }
-
-  // マスターキーが空の場合は完全乱数生成 (CSPRNG)
-  const randomArray = new Uint32Array(length);
-  crypto.getRandomValues(randomArray);
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += allowedChars[randomArray[i] % allowedChars.length];
-  }
-  return result;
 }
 
-// --- 4. イベントハンドラ & 初期化 ---
+els.langToggle.querySelectorAll('.lang-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const lang = btn.dataset.lang;
+    applyLanguage(lang);
+    chrome.storage.local.set({ [LANG_STORAGE_KEY]: lang });
+  });
+});
+
+// --- 初期化処理 ---
 document.addEventListener('DOMContentLoaded', async () => {
-  applyI18n();
+  const stored = await chrome.storage.local.get(
+    ['domain', 'version', 'length', 'opts', 'defaultUserId', LANG_STORAGE_KEY]
+  );
 
-  // DOM要素の取得
-  const masterKeyInput = document.getElementById('masterKey');
-  const serviceInput = document.getElementById('serviceName') || document.getElementById('service');
-  const lengthInput = document.getElementById('length') || document.getElementById('passwordLength');
-  const lengthValDisplay = document.getElementById('lengthVal') || document.getElementById('lengthValue');
-  const optUpper = document.getElementById('uppercase') || document.getElementById('optUpper');
-  const optLower = document.getElementById('lowercase') || document.getElementById('optLower');
-  const optNum = document.getElementById('numbers') || document.getElementById('optNum');
-  const optSym = document.getElementById('symbols') || document.getElementById('optSym');
+  applyLanguage(stored[LANG_STORAGE_KEY] === 'ja' ? 'ja' : 'en');
 
-  const generateBtn = document.getElementById('generate') || document.getElementById('generateBtn');
-  const resultInput = document.getElementById('result') || document.getElementById('passwordOutput');
-  const copyBtn = document.getElementById('copy') || document.getElementById('copyBtn');
-  const statusMsg = document.getElementById('status') || document.getElementById('statusMsg');
+  if (stored.version) els.version.value = stored.version;
+  if (stored.length) {
+    els.lengthSlider.value = stored.length;
+    els.lengthDisplay.textContent = stored.length;
+  }
+  if (stored.opts) {
+    els.optUpper.checked = stored.opts.upper;
+    els.optLower.checked = stored.opts.lower;
+    els.optNum.checked = stored.opts.num;
+    els.optSym.checked = stored.opts.sym;
+  }
+  if (stored.defaultUserId) els.userId.value = stored.defaultUserId;
 
-  // 設定値の復元 (127行目エラー対策)
-  const savedSettings = await storage.get({
-    length: 16,
-    uppercase: true,
-    lowercase: true,
-    numbers: true,
-    symbols: true
+  // 現在のタブのホスト名をそのまま自動セット(サブドメインの推測はしない)
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs && tabs[0] && tabs[0].url) {
+      try {
+        const url = new URL(tabs[0].url);
+        if (url.protocol.startsWith('http')) {
+          els.domain.value = url.hostname;
+        } else if (stored.domain) {
+          els.domain.value = stored.domain;
+        }
+      } catch (e) {
+        if (stored.domain) els.domain.value = stored.domain;
+      }
+    }
   });
+});
 
-  if (lengthInput) {
-    lengthInput.value = savedSettings.length;
-    if (lengthValDisplay) lengthValDisplay.textContent = savedSettings.length;
+// --- UIイベント ---
+els.toggleVis.addEventListener('click', () => {
+  const type = els.masterKey.type === 'password' ? 'text' : 'password';
+  els.masterKey.type = type;
+});
+
+els.lengthSlider.addEventListener('input', (e) => {
+  els.lengthDisplay.textContent = e.target.value;
+});
+
+els.saveUserIdBtn.addEventListener('click', () => {
+  const value = els.userId.value.trim();
+  chrome.storage.local.set({ defaultUserId: value }, () => {
+    els.userIdHint.textContent = I18N[currentLang].userIdSavedHint;
+    setTimeout(() => { els.userIdHint.textContent = ''; }, 1800);
+  });
+});
+
+els.copyBtn.addEventListener('click', () => {
+  const pwd = els.output.value;
+  if (!pwd) return;
+
+  navigator.clipboard.writeText(pwd).then(() => {
+    const dict = I18N[currentLang];
+    els.copyBtn.textContent = dict.copiedBtn;
+    els.copyBtn.style.color = 'var(--gold)';
+    setTimeout(() => {
+      els.copyBtn.textContent = dict.copyBtn;
+      els.copyBtn.style.color = '';
+    }, 1500);
+  });
+});
+
+// --- パスワード生成メインロジック ---
+els.generateBtn.addEventListener('click', async () => {
+  const dict = I18N[currentLang];
+  const master = els.masterKey.value;
+  const domain = els.domain.value.trim();
+  const userId = els.userId.value.trim();
+  const version = els.version.value;
+  const length = parseInt(els.lengthSlider.value, 10);
+
+  const opts = {
+    upper: els.optUpper.checked,
+    lower: els.optLower.checked,
+    num: els.optNum.checked,
+    sym: els.optSym.checked
+  };
+
+  if (!master || !domain) {
+    alert(dict.alertMasterDomain);
+    return;
   }
-  if (optUpper) optUpper.checked = savedSettings.uppercase;
-  if (optLower) optLower.checked = savedSettings.lowercase;
-  if (optNum) optNum.checked = savedSettings.numbers;
-  if (optSym) optSym.checked = savedSettings.symbols;
-
-  // 長さスライダーの数値同期
-  if (lengthInput && lengthValDisplay) {
-    lengthInput.addEventListener('input', () => {
-      lengthValDisplay.textContent = lengthInput.value;
-    });
+  if (!opts.upper && !opts.lower && !opts.num && !opts.sym) {
+    alert(dict.alertCharClass);
+    return;
   }
 
-  // 生成ボタンクリック処理 (221行目エラー対策)
-  if (generateBtn) {
-    generateBtn.addEventListener('click', async () => {
-      const length = lengthInput ? parseInt(lengthInput.value, 10) : 16;
-      const options = {
-        uppercase: optUpper ? optUpper.checked : true,
-        lowercase: optLower ? optLower.checked : true,
-        numbers: optNum ? optNum.checked : true,
-        symbols: optSym ? optSym.checked : true
-      };
+  chrome.storage.local.set({ domain, version, length, opts });
 
-      const masterKey = masterKeyInput ? masterKeyInput.value : '';
-      const serviceName = serviceInput ? serviceInput.value : '';
+  els.gearIcon.classList.add('spinning');
+  els.generateBtn.style.opacity = '0.7';
+  els.generateBtn.disabled = true;
 
-      // 設定を永続化
-      await storage.set({
-        length: length,
-        ...options
-      });
+  await new Promise(r => setTimeout(r, 20));
 
-      // パスワード生成実行
-      try {
-        const password = await generateDerivedPassword(masterKey, serviceName, length, options);
-        if (resultInput) {
-          resultInput.value = password;
-          resultInput.dispatchEvent(new Event('input'));
-        }
-      } catch (err) {
-        console.error('Password generation failed:', err);
-      }
-    });
-  }
-
-  // クリップボードコピー処理
-  if (copyBtn && resultInput) {
-    copyBtn.addEventListener('click', async () => {
-      if (!resultInput.value) return;
-
-      try {
-        await navigator.clipboard.writeText(resultInput.value);
-        if (statusMsg) {
-          statusMsg.textContent = 'Copied!';
-          setTimeout(() => {
-            statusMsg.textContent = '';
-          }, 2000);
-        }
-      } catch (err) {
-        // フォールバック
-        resultInput.select();
-        document.execCommand('copy');
-        if (statusMsg) {
-          statusMsg.textContent = 'Copied!';
-          setTimeout(() => {
-            statusMsg.textContent = '';
-          }, 2000);
-        }
-      }
-    });
+  try {
+    const password = await derivePassword(master, domain, userId, version, length, opts);
+    els.output.value = password;
+    els.copyBtn.disabled = false;
+  } catch (error) {
+    console.error(error);
+    alert(dict.alertGenFail);
+  } finally {
+    els.gearIcon.classList.remove('spinning');
+    els.generateBtn.style.opacity = '1';
+    els.generateBtn.disabled = false;
   }
 });
+
+// 文字プールをバイトに割り当てる際、剰余バイアスを避けるための棄却サンプリング
+function bytesToPassword(bytes, pool, length) {
+  const poolLen = pool.length;
+  const limit = Math.floor(256 / poolLen) * poolLen;
+  let out = "";
+  for (let i = 0; i < bytes.length && out.length < length; i++) {
+    const b = bytes[i];
+    if (b < limit) out += pool[b % poolLen];
+  }
+  return out.length === length ? out : null;
+}
+
+// PBKDF2を使用した堅牢なパスワード導出処理
+async function derivePassword(master, domain, userId, version, length, opts) {
+  let pool = "";
+  if (opts.upper) pool += CHAR_SETS.upper;
+  if (opts.lower) pool += CHAR_SETS.lower;
+  if (opts.num)   pool += CHAR_SETS.num;
+  if (opts.sym)   pool += CHAR_SETS.sym;
+
+  const enc = new TextEncoder();
+  const importKey = await crypto.subtle.importKey(
+    "raw", enc.encode(master), { name: "PBKDF2" }, false, ["deriveBits"]
+  );
+
+  let attempt = 0;
+  while (attempt < MAX_ATTEMPTS) {
+    const saltString = `${domain}|${userId}|${version}|${attempt}`;
+    const byteLen = Math.max(64, length * 4);
+    const buffer = await crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt: enc.encode(saltString), iterations: ITERATIONS, hash: "SHA-256" },
+      importKey,
+      byteLen * 8
+    );
+
+    const bytes = new Uint8Array(buffer);
+    const candidate = bytesToPassword(bytes, pool, length);
+
+    if (candidate) {
+      let valid = true;
+      if (opts.upper && !/[A-Z]/.test(candidate)) valid = false;
+      if (opts.lower && !/[a-z]/.test(candidate)) valid = false;
+      if (opts.num && !/[0-9]/.test(candidate)) valid = false;
+      if (opts.sym && !SYM_REGEX.test(candidate)) valid = false;
+      if (valid) return candidate;
+    }
+
+    attempt++;
+  }
+
+  throw new Error("failed to satisfy constraints after max attempts");
+}
