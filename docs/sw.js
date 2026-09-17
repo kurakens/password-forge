@@ -2,7 +2,7 @@
 // 静的アセットのみをキャッシュする。合言葉や生成パスワードはそもそも
 // どこにも送信・保存しないため、このSWのキャッシュ対象にも含まれない。
 
-const CACHE_NAME = "password-forge-v1";
+const CACHE_NAME = "password-forge-v2";
 const PRECACHE_URLS = [
   "./",
   "./index.html",
