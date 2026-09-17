@@ -14,20 +14,23 @@ html {
 
 body {
   width: 100%;
-  max-width: 340px;
   min-height: 100vh;
   box-sizing: border-box;
-  margin: 0 auto;
-  padding: 16px;
+  margin: 0;
+  padding: 28px 20px calc(28px + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
   background-color: var(--bg-color);
   color: var(--text-main);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 .container {
+  width: 100%;
+  max-width: 440px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 header {
@@ -46,13 +49,13 @@ header {
 
 h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 26px;
   letter-spacing: 1px;
 }
 
 .gear-icon {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
 }
 
 .spinning {
@@ -64,8 +67,8 @@ h1 {
 }
 
 .subtitle {
-  margin: 4px 0 0;
-  font-size: 11px;
+  margin: 6px 0 0;
+  font-size: 12px;
   color: #888;
   text-transform: uppercase;
   letter-spacing: 2px;
@@ -73,8 +76,8 @@ h1 {
 
 .panel {
   background: var(--panel-bg);
-  padding: 16px;
-  border-radius: 6px;
+  padding: 20px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.05);
 }
@@ -95,7 +98,7 @@ h1 {
 }
 
 label {
-  font-size: 12px;
+  font-size: 13px;
   color: #aaa;
 }
 
@@ -110,9 +113,9 @@ input[type="number"] {
   background: var(--input-bg);
   border: 1px solid var(--border);
   color: var(--text-main);
-  padding: 8px;
+  padding: 12px;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px;
   outline: none;
   transition: border-color 0.2s;
 }
@@ -130,20 +133,21 @@ input[type="number"]:focus {
 
 .password-wrapper input {
   width: 100%;
-  padding-right: 36px;
+  padding-right: 40px;
   box-sizing: border-box;
 }
 
 #toggleVis {
   position: absolute;
-  right: 4px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
   background: none;
   border: none;
   color: #888;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 18px;
+  padding: 4px;
 }
 
 input[type="range"] {
@@ -171,12 +175,12 @@ input[type="range"] {
 
 .primary-btn {
   width: 100%;
-  padding: 10px;
+  padding: 14px;
   background: linear-gradient(180deg, #d4af37 0%, #aa8511 100%);
   color: #000;
   border: none;
-  border-radius: 4px;
-  font-size: 14px;
+  border-radius: 6px;
+  font-size: 16px;
   font-weight: bold;
   cursor: pointer;
   display: flex;
@@ -191,8 +195,8 @@ input[type="range"] {
 .primary-btn:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
 
 .btn-icon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .output-panel {
@@ -206,18 +210,21 @@ input[type="range"] {
   border: 1px solid var(--gold-dim);
   color: var(--gold);
   font-family: monospace;
-  font-size: 16px;
+  font-size: 17px;
   text-align: center;
+  padding: 10px;
+  border-radius: 4px;
+  box-sizing: border-box;
 }
 
 .copy-btn {
   background: var(--panel-bg);
   border: 1px solid var(--border);
   color: var(--text-main);
-  padding: 0 12px;
+  padding: 0 16px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   transition: all 0.2s;
 }
 
